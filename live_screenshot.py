@@ -92,7 +92,7 @@ class ScreenshotApp:
         timer_subframe.pack(fill=tk.X)
         
         ttk.Label(timer_subframe, text="截图间隔(秒):").grid(row=0, column=0, sticky=tk.W)
-        self.interval_var = tk.StringVar(value="0.5")  # 根据您的图片设置为0.5秒
+        self.interval_var = tk.StringVar(value="0.4")  # 根据您的图片设置为0.4秒
         interval_entry = ttk.Entry(timer_subframe, textvariable=self.interval_var, width=10)
         interval_entry.grid(row=0, column=1, sticky=tk.W, padx=(5, 20))
         
