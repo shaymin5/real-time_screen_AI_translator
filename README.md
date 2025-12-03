@@ -2,7 +2,7 @@
 <div align="center">
 
 # 实时屏幕AI翻译工具 | Real-time Screen AI Translator Tool
-中文 | [英文](README_EN.md)
+中文 | [English](README_EN.md)
 
 </div>
 
@@ -22,13 +22,14 @@ cd real-time_screen_AI_translator
 ```text
 DEEPSEEK_API_KEY=你的api密钥
 ```
-4. 用uv安装依赖
+4. 用`uv`安装依赖
 ```bash
 uv sync
 ```
 安装torch时因为在国外服务器下载，速度慢正常，使用代理可以提速。目前该操作默认下载torch的cu128即gpu版本，没有Nvida显卡请下载cpu版本。下载cpu版本请把`pyproject.toml`中的
 `https://download.pytorch.org/whl/cu128`替换为`https://download.pytorch.org/whl/cpu`或`https://pypi.tuna.tsinghua.edu.cn/simple`，后者在中国大陆下载速度较快。
 如果你的设备对torch版本有要求，请自行修改`https://download.pytorch.org/whl/cu128`为相应地址。
+
 5. 开始运行
 ```bash
 uv run main.py
@@ -36,3 +37,5 @@ uv run main.py
 ## 提示
 - 目前的版本建议只框选翻译范围，不要改动其他设置。
 - 暂只支持Deepseek API，性价比之选。后续考虑接入翻译速度更快的AI。
+- 目前仅支持英文翻译中文，后续考虑增加语言可选项。
+- 未测试过cpu版的torch，有朋友感兴趣可以帮忙测下性能差异。RTX5060 8G显卡目前一般的图像OCR识别速度在0.1秒左右。
