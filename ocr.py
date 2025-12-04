@@ -3,9 +3,9 @@ import time
 
 
 class OCR:
-    def __init__(self, languages=['en']):
+    def __init__(self, languages=['en'],gpu=True):
         self.languages = languages
-        self.reader = easyocr.Reader(languages, gpu=True)
+        self.reader = easyocr.Reader(languages, gpu=gpu)
 
     def ocr_image(self, image_path) -> str:
         result = self.reader.readtext(

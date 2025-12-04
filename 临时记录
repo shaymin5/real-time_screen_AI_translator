@@ -1,0 +1,27 @@
+self.interval_var = 0.4 时间间隔
+self.count_var = 0 截图数量 应废除
+self.path_var = os.path.join(os.getcwd(), "temp_screenshots") 保存路径
+self.prefix_var = "temp_screenshot" 文件名前缀
+
+删除了：
+config = {
+            "interval": self.interval_var.get(),
+            "count": self.count_var.get(),
+            "path": self.path_var.get(),
+            "prefix": self.prefix_var.get(),
+}
+
+准备写死
+self.interval = 0.4
+self.path
+self.prefix
+
+
+测试选完语言后点开始，把开始中断把参数打出来
+测试语言选择，GPU选择
+
+语言设置新增的实例属性
+self.supported_languages
+self.source_lang_var 可保存到config
+self.languages_mapping  
+self.use_gpu_ocr 可保存到config

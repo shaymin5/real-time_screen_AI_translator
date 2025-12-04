@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 import pyautogui
 import time
 import threading
@@ -32,11 +32,33 @@ class ScreenshotApp:
         self.is_selecting = False
         self.is_capturing = False
         self.capture_thread = None
+        self.interval = 0.4  # 截图时间间隔
+        self.path = os.path.join(os.getcwd(), "temp_screenshots")  # 保存路径
+        self.prefix = "temp_screenshot"  # 文件名前缀
         
+        # 初始化界面变量
+        # 定义支持的语言列表
+        self.supported_languages = ['英语', '简体中文+英语', '日语', '繁体中文', '韩语', '法语', '德语', '西班牙语', '俄语']
+        # 语言映射字典
+        self.languages_mapping = {
+            "英语": ["en"],
+            "简体中文+英语": ['ch_sim','en'],
+            "日语": ["ja"],
+            "繁体中文": ["ch_tra"],
+            "韩语": ["ko"],
+            "法语": ["fr"],
+            "德语": ["de"],
+            "西班牙语": ["es"],
+            "俄语": ["ru"]
+        }
+        self.source_lang_var = tk.StringVar(value="英语") # 源语言变量
+        self.use_gpu_ocr = tk.BooleanVar(value=True) # GPU OCR变量
+
         # 创建界面
         self.create_widgets()
         
         # 加载配置
+        # 一定要创建完再加载，这样就可以把初始化的状态更新为config的状态
         self.load_config()
 
         # 队列初始化
@@ -61,10 +83,10 @@ class ScreenshotApp:
         self.control_frame.pack(fill=tk.X, pady=(0, 10))
         
         # 开始/停止按钮
-        self.start_button = ttk.Button(self.control_frame, text="开始截图", command=self.start_capture)
+        self.start_button = ttk.Button(self.control_frame, text="开始翻译", command=self.start_capture)
         self.start_button.pack(side=tk.LEFT, padx=(0, 10))
         
-        self.stop_button = ttk.Button(self.control_frame, text="停止截图", command=self.stop_capture, state=tk.DISABLED)
+        self.stop_button = ttk.Button(self.control_frame, text="停止翻译", command=self.stop_capture, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT)
         
         # 折叠/展开按钮
@@ -72,7 +94,7 @@ class ScreenshotApp:
         self.toggle_button.pack(side=tk.RIGHT)
         
         # 设置框架 - 初始状态为折叠
-        self.settings_frame = ttk.LabelFrame(main_frame, text="截图设置", padding="10")
+        self.settings_frame = ttk.LabelFrame(main_frame, text="翻译设置", padding="10")
         self.settings_visible = False  # 初始不显示设置
         
         # 区域选择部分
@@ -83,51 +105,50 @@ class ScreenshotApp:
         self.area_label = ttk.Label(area_frame, text="未选择区域")
         self.area_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # 定时设置部分
-        timer_frame = ttk.Frame(self.settings_frame)
-        timer_frame.pack(fill=tk.X, pady=(0, 10))
+        # 语言设置部分
+        lang_frame = ttk.Frame(self.settings_frame)
+        lang_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # 使用Frame来组织定时设置的布局
-        timer_subframe = ttk.Frame(timer_frame)
-        timer_subframe.pack(fill=tk.X)
+        # 源语言设置
+        source_frame = ttk.LabelFrame(lang_frame, text="源语言", padding="5")
+        source_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         
-        ttk.Label(timer_subframe, text="截图间隔(秒):").grid(row=0, column=0, sticky=tk.W)
-        self.interval_var = tk.StringVar(value="0.4")  # 根据您的图片设置为0.4秒
-        interval_entry = ttk.Entry(timer_subframe, textvariable=self.interval_var, width=10)
-        interval_entry.grid(row=0, column=1, sticky=tk.W, padx=(5, 20))
+        # 创建源语言下拉菜单
+        source_combo = ttk.Combobox(
+            source_frame, 
+            textvariable=self.source_lang_var,
+            values=self.supported_languages,
+            state="readonly",
+            width=15
+        )
+        source_combo.pack(fill=tk.X, padx=5, pady=5)
         
-        ttk.Label(timer_subframe, text="截图次数(0=无限):").grid(row=0, column=2, sticky=tk.W)
-        self.count_var = tk.StringVar(value="0")
-        count_entry = ttk.Entry(timer_subframe, textvariable=self.count_var, width=10)
-        count_entry.grid(row=0, column=3, sticky=tk.W, padx=(5, 0))
+        # GPU OCR设置
+        gpu_frame = ttk.LabelFrame(lang_frame, text="OCR设置", padding="5")
+        gpu_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # 配置定时设置子框架的列权重
-        timer_subframe.columnconfigure(1, weight=1)
-        timer_subframe.columnconfigure(3, weight=1)
+        # 创建GPU OCR复选框
+        gpu_check = ttk.Checkbutton(
+            gpu_frame,
+            text="启用GPU加速",
+            variable=self.use_gpu_ocr,
+            onvalue=True,
+            offvalue=False
+        )
+        gpu_check.pack(fill=tk.X, padx=5, pady=5)
         
-        # 保存设置部分
-        save_frame = ttk.Frame(self.settings_frame)
-        save_frame.pack(fill=tk.X)
+        # 添加备注标签
+        note_label = ttk.Label(
+            gpu_frame,
+            text="如果有Nvidia GPU建议开启",
+            foreground="gray",
+            font=("TkDefaultFont", 8)
+        )
+        note_label.pack(fill=tk.X, padx=5, pady=(0, 5))
         
-        # 保存路径行
-        path_frame = ttk.Frame(save_frame)
-        path_frame.pack(fill=tk.X, pady=(0, 5))
-        
-        ttk.Label(path_frame, text="保存路径:", width=10).pack(side=tk.LEFT)
-        self.path_var = tk.StringVar(value=os.path.join(os.getcwd(), "temp_screenshots"))
-        path_entry = ttk.Entry(path_frame, textvariable=self.path_var)
-        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
-        ttk.Button(path_frame, text="浏览", command=self.browse_path).pack(side=tk.LEFT)
-        
-        # 文件名前缀行
-        prefix_frame = ttk.Frame(save_frame)
-        prefix_frame.pack(fill=tk.X)
-        
-        ttk.Label(prefix_frame, text="文件名前缀:", width=10).pack(side=tk.LEFT)
-        self.prefix_var = tk.StringVar(value="temp_screenshot")
-        prefix_entry = ttk.Entry(prefix_frame, textvariable=self.prefix_var)
-        prefix_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-        
+        # 添加一个方法来获取语言代码
+        # self.setup_language_mapping()
+
         # 状态显示 - 使用pack并允许扩展
         self.status_frame = ttk.LabelFrame(main_frame, text="状态", padding="10")
         self.status_frame.pack(fill=tk.BOTH, expand=True)
@@ -169,7 +190,7 @@ class ScreenshotApp:
 
     def start_area_selection(self):
         self.is_selecting = True
-        self.update_status("请框选截图区域...")
+        self.update_status("请框选翻译区域...")
         
         # 最小化主窗口
         self.root.iconify()
@@ -235,37 +256,16 @@ class ScreenshotApp:
         self.root.deiconify()
         self.is_selecting = False
         self.update_status("区域选择已取消")
-    
-    def browse_path(self):
-        path = filedialog.askdirectory(initialdir=self.path_var.get())
-        if path:
-            self.path_var.set(path)
-            self.save_config()
-    
+        
     def start_capture(self):
         # 验证输入
-        try:
-            interval = float(self.interval_var.get())
-            if interval <= 0:
-                raise ValueError("间隔时间必须大于0")
-        except ValueError:
-            messagebox.showerror("错误", "请输入有效的间隔时间（大于0的数字）")
-            return
-        
-        try:
-            count = int(self.count_var.get())
-            if count < 0:
-                raise ValueError("截图次数不能为负数")
-        except ValueError:
-            messagebox.showerror("错误", "请输入有效的截图次数（非负整数）")
-            return
         
         if self.start_x is None or self.start_y is None or self.end_x is None or self.end_y is None:
             messagebox.showerror("错误", "请先选择截图区域")
             return
         
         # 确保保存目录存在
-        save_path = self.path_var.get()
+        save_path = self.path
         if not os.path.exists(save_path):
             try:
                 os.makedirs(save_path)
@@ -277,15 +277,9 @@ class ScreenshotApp:
         self.is_capturing = True
         self.start_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
-        
-        # 初始化图片队列
-        self.image_queue = ImageQueue2(Path(self.path_var.get()), size=20)
 
-        # 初始化OCR
-        self.ocr = OCR(languages=['en'])
-
-        # 初始化翻译官
-        self.translator = Translator()
+        # 保存配置
+        self.save_config()
 
         # 隐藏设置区域
         self.hide_settings()
@@ -294,12 +288,20 @@ class ScreenshotApp:
         self.start_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
         
-        self.update_status("开始定时截图...")
+        # 初始化图片队列
+        self.image_queue = ImageQueue2(Path(self.path), size=20)
+
+        # 初始化OCR
+        self.ocr = OCR(languages=['en'])
+
+        # 初始化翻译官
+        self.translator = Translator()
+        
+        self.update_status("实时翻译开始...")
 
         # 启动截图线程
         self.capture_thread = threading.Thread(
             target=self.capture_loop, 
-            args=(interval, count),
             daemon=True
         )
         self.capture_thread.start()
@@ -313,10 +315,9 @@ class ScreenshotApp:
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         
-        self.update_status("截图已停止")    
+        self.update_status("翻译已停止")    
     
-    def capture_loop(self, interval, count):
-        captured_count = 0
+    def capture_loop(self):
         
         start_time = time.time()
         while self.is_capturing:
@@ -335,8 +336,8 @@ class ScreenshotApp:
                 
                 # 生成文件名
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                filename = f"{self.prefix_var.get()}_{timestamp}.png"
-                filepath = os.path.join(self.path_var.get(), filename)
+                filename = f"{self.prefix}_{timestamp}.png"
+                filepath = os.path.join(self.path, filename)
                 
                 # 保存图片
                 screenshot.save(filepath)
@@ -371,20 +372,14 @@ class ScreenshotApp:
                         # print("跳过翻译：上一个翻译任务尚未完成")
                         pass
 
-                # 检查是否达到指定次数 上面pass时这里会有bug，但无所谓
-                captured_count += 1
-                if count > 0 and captured_count >= count:
-                    self.root.after(0, self.stop_capture)
-                    break
-                    
             except Exception as e:
                 self.root.after(0, self.update_status, f"截图失败: {str(e)}")
             
             # 等待指定间隔
-            for _ in range(int(interval * 10)):
+            for _ in range(int(self.interval * 10)):
                 if not self.is_capturing:
                     break
-                if start_time + interval <= time.time():
+                if start_time + self.interval <= time.time():
                     start_time = time.time()
                     break
                 time.sleep(0.1)
@@ -399,14 +394,12 @@ class ScreenshotApp:
     
     def save_config(self):
         config = {
-            "interval": self.interval_var.get(),
-            "count": self.count_var.get(),
-            "path": self.path_var.get(),
-            "prefix": self.prefix_var.get(),
             "start_x": self.start_x,
             "start_y": self.start_y,
             "end_x": self.end_x,
-            "end_y": self.end_y
+            "end_y": self.end_y,
+            "source_language": self.source_lang_var.get(),
+            "use_gpu_ocr": self.use_gpu_ocr.get()
         }
         
         try:
@@ -419,12 +412,9 @@ class ScreenshotApp:
         try:
             with open("screenshot_config.json", "r") as f:
                 config = json.load(f)
-                
-            self.interval_var.set(config.get("interval", "5"))
-            self.count_var.set(config.get("count", "0"))
-            self.path_var.set(config.get("path", os.path.join(os.getcwd(), "temp_screenshots")))
-            self.prefix_var.set(config.get("prefix", "temp_screenshot"))
             
+            self.source_lang_var.set(config.get("source_language", "英语"))
+            self.use_gpu_ocr.set(config.get("use_gpu_ocr", True))
             self.start_x = config.get("start_x")
             self.start_y = config.get("start_y")
             self.end_x = config.get("end_x")
