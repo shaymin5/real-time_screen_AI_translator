@@ -42,15 +42,15 @@ uv run main.py
 - The CPU version of torch has not been tested. If anyone is interested, please feel free to help test the performance difference. On an RTX5060 8GB GPU, typical OCR recognition speed for images is around 0.1 seconds.
 
 ## Next Steps
-0. Establish a testing framework to facilitate testing new features.
-1. Add support for new languages.
-2. Open up API prompt customization functionality, allowing users to customize translation services.
-3. Add TTS (Text-to-Speech) functionality for automatic reading (challenging).
-   1. Explore or create a simple and easy-to-use TTS voice training solution.
-   2. Implement user-trained voices.
-4. Optimize and add support for new OCR engines, enabling users with less powerful hardware to enjoy the tool.
-5. Add API interfaces from other providers.
-6. Implement error handling for exceptions such as network errors and exhausted API quotas.
-7. Attempt to create a system tray resident application that can be summoned via hotkeys (a quick-launch via mouse operation can be implemented first).
-8. Experiment with a dual-screen solution.
-9. Optimize and expand runtime environment customization options, allowing users to more easily select torch versions.
+- [ ] Asynchronous translation to enhance user experience  
+- [ ] Add support for new languages  
+- [ ] Enable API prompt customization, allowing users to configure translation services  
+- [ ] Implement TTS (Text-to-Speech) auto-read feature (Challenge)  
+   - [ ] Explore or create a simple and easy-to-use TTS voice training solution  
+   - [ ] Implement user-trained voice models  
+- [ ] Optimize and expand OCR engine support, ensuring smooth performance for users with lower-end hardware  
+- [ ] Integrate API interfaces from other providers  
+- [ ] Improve error handling for network issues, API quota exhaustion, and other exceptions  
+- [ ] Implement a system tray resident feature with hotkey activation (starting with mouse-operated quick launch)  
+- [ ] Explore dual-screen support solutions  
+- [ ] Enhance customizable runtime environment options for easier Torch version selection
