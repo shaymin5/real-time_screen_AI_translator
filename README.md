@@ -12,8 +12,8 @@
 - **实时截图**：捕获屏幕并生成截图。
 - **OCR识别**：从截图中提取文字。
 ## 快速开始
-1. 安装uv来管理Python虚拟环境。[下载uv](https://github.com/astral-sh/uv)
-2. 克隆此仓库到本地并进入项目目录：
+1. 安装uv来管理Python虚拟环境。[下载uv](https://github.com/astral-sh/uv)。
+2. 克隆此仓库到本地并进入项目目录，或直接下载仓库
 ```bash
 git clone https://github.com/shaymin5/real-time_screen_AI_translator.git
 cd real-time_screen_AI_translator
@@ -39,3 +39,17 @@ uv run main.py
 - 暂只支持Deepseek API，性价比之选。后续考虑接入翻译速度更快的AI。
 - 目前仅支持英文翻译中文，后续考虑增加语言可选项。
 - 未测试过cpu版的torch，有朋友感兴趣可以帮忙测下性能差异。RTX5060 8G显卡目前一般的图像OCR识别速度在0.1秒左右。
+
+## 下一步计划
+0. 搭建测试框架便于测试新features
+1. 增加新语言支持
+2. 开放API接口提示词修改功能，允许玩家自定义翻译服务
+3. 增加ttf功能自动朗读（挑战）
+   1. 发掘或制作简单易用的ttf音色训练方案
+   2. 用户自练音色实装
+4. 优化和新增OCR引擎支持，让硬件条件不好的玩家也可以露出笑容
+5. 新增其他厂商的API接口
+6. 对网络错误、API配额耗尽等异常情况做容错处理
+7. 尝试实现常驻系统托盘，按快捷键唤起（可以先实现鼠标操作的快捷启动）
+8. 尝试双屏方案
+9. 优化运行环境自定义选项，玩家可以更方便选择torch版本
