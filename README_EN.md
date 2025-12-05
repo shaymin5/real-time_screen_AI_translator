@@ -35,22 +35,22 @@ If your device has specific torch version requirements, please modify `https://d
 uv run main.py
 ```
 
-## Tips
-- For the current version, it is recommended to only select the translation area and not modify other settings.
-- Currently only supports the Deepseek API, which is a cost-effective choice. Plans are in place to integrate faster AI translation services in the future.
-- Currently only supports translation from English to Chinese. Support for additional languages is planned for the future.
-- The CPU version of torch has not been tested. If anyone is interested, please feel free to help test the performance difference. On an RTX5060 8GB GPU, typical OCR recognition speed for images is around 0.1 seconds.
+## Notes
+- The first time you select a source language, you need to wait for the OCR model to download. Subsequent uses will not require downloading and will be much faster.
+- Currently, only the Deepseek API is supported, which is a cost-effective choice. Faster AI translation options are being considered for future integration.
+- Currently, only English-to-Chinese translation is supported. Support for additional languages is planned for the future.
+- OCR recognition speed varies by hardware: An RTX 5060 8G takes about 0.1 seconds, causing a 0.2-second delay; a Ryzen 9500F takes about 0.3 seconds, causing a 0.6-second delay.
 
 ## Next Steps
-- [ ] Asynchronous translation to enhance user experience  
-- [ ] Add support for new languages  
-- [ ] Enable API prompt customization, allowing users to configure translation services  
-- [ ] Implement TTS (Text-to-Speech) auto-read feature (Challenge)  
-   - [ ] Explore or create a simple and easy-to-use TTS voice training solution  
-   - [ ] Implement user-trained voice models  
-- [ ] Optimize and expand OCR engine support, ensuring smooth performance for users with lower-end hardware  
-- [ ] Integrate API interfaces from other providers  
-- [ ] Improve error handling for network issues, API quota exhaustion, and other exceptions  
-- [ ] Implement a system tray resident feature with hotkey activation (starting with mouse-operated quick launch)  
-- [ ] Explore dual-screen support solutions  
-- [ ] Enhance customizable runtime environment options for easier Torch version selection
+- [ ] Implement asynchronous translation to improve user experience
+- [x] Add support for new languages
+- [ ] Enable API prompt modification, allowing users to customize translation services
+- [ ] Implement TTS functionality for automatic reading (Challenging)
+   - [ ] Explore or develop a simple and easy-to-use TTS voice training solution
+   - [ ] Implement user-trained voice models
+- [x] Optimize OCR to support CPU mode, allowing users with lower-end hardware to enjoy the tool
+- [ ] Add API interfaces from other providers
+- [ ] Implement error handling for network errors, exhausted API quotas, and other exceptions
+- [ ] Attempt to implement a system tray resident mode with hotkey activation (mouse-operated quick start can be implemented first)
+- [ ] Experiment with a dual-screen solution
+- [ ] Optimize customizable runtime environment options, allowing users to more easily select torch versions
