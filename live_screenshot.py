@@ -292,7 +292,7 @@ class ScreenshotApp:
         self.image_queue = ImageQueue2(Path(self.path), size=20)
 
         # 初始化OCR
-        self.ocr = OCR(languages=['en'])
+        self.ocr = OCR(languages=self.languages_mapping[self.source_lang_var.get()], gpu=self.use_gpu_ocr.get())
 
         # 初始化翻译官
         self.translator = Translator()
