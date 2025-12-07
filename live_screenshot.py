@@ -346,6 +346,7 @@ class ScreenshotApp:
 
                 # 进行OCR识别 todo
                 ocr_result = self.ocr.ocr_image(filepath)
+                # 通过text_queue判断是否需要翻译
                 if self.text_queue.compare(ocr_result):
                     # 检查是否有正在进行的翻译任务
                     if self.current_translation_future is None or self.current_translation_future.done():
@@ -387,8 +388,6 @@ class ScreenshotApp:
                 start_time = time.time()
     
     def update_status(self, message):
-        # timestamp = datetime.now().strftime("%H:%M:%S")
-        # self.status_text.insert(tk.END, f"[{timestamp}] {message}\n")
         self.status_text.insert(tk.END, f"{message}\n")
         self.status_text.see(tk.END)
     
@@ -443,7 +442,7 @@ class TextQueue2:
         self.items:list[str] = []
         self.size = size
     
-    def compare(self,item:str):
+    def compare(self,item):
         # queue 未满时，直接添加
         if len(self.items) < self.size:
             self.items.append(item)

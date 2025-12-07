@@ -11,8 +11,8 @@ class OCR:
         result = self.reader.readtext(
             image_path,
             paragraph=True)
-        texts = [detection[1] for detection in result]
-        return '\n'.join(texts)
+        texts = tuple(detection[1] for detection in result)
+        return texts
 
 
 
@@ -20,8 +20,7 @@ if __name__ == "__main__":
     start_time = time.time()
 
     ocr = OCR(languages=['en'])
-    for i in range(10):
-        text = ocr.ocr_image(r'D:\gameboy\ai_translator\temp_screenshots\temp_screenshot_20251202_214912.png')
+    text = ocr.ocr_image(r'test_pic\image copy.png')
     end_time = time.time()
     print(f"改进方案识别时间: {end_time - start_time:.2f} 秒")
     print(text)

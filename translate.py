@@ -19,51 +19,76 @@ class Translator:
     def __init__(self,size=2):
         self.queue = []
         self.size = size
+        self.exclude_dict = dict() # 需要排除的文本, key为文本内容，value为出现次数, 超过一定次数后加入exclude_set永久排除
+        self.exclude_amount = 5 # 超过该次数后加入永久排除集合
+        self.exclude_set = set() # 永久排除的文本
 
-    def translate(self, text: str) -> str:
-        if self._judge(text):
-            text = self._clear(text)
-            if text == "":
+    def translate(self, text) -> str:
+        # 根据输入类型进行处理
+        if isinstance(text, str):
+            text = text.strip()
+            if self._judge(text):
+                return self._translate_text(text)
+            else:
                 return ""
-            return self._translate_text(text)
+        if isinstance(text, tuple):
+            # 多行文本可能存在游戏UI，需要清理
+            cleared_text = self._clear(text).strip()
+            if self._judge(cleared_text):
+                return self._translate_text(cleared_text)
+            else:
+                return ""
         else:
             return ""
+
     
     def _judge(self,item:str):
-        # queue 未满时，直接添加，返回True表示可以翻译
+        # 按上次翻译结果判断是否翻译，如果重复则不翻译
+        # 返回False表示不翻译，返回True表示翻译
+        if item == "":
+            return False
+        # queue 未满时表示为第一次翻译，直接填满，返回True表示可以翻译
         if len(self.queue) < self.size:
-            self.queue.append(item)
+            for _ in range(self.size):
+                self.queue.append(item[:-1]) # 防止最后一个字符因跳动产生变化
             return True
         # queue 已满时，弹出最早的，添加新的，比较最后两个，相同返回False表示不翻译，不同返回True表示翻译
         elif len(self.queue) >= self.size:
             self.queue.pop(0)
-            self.queue.append(item)
+            self.queue.append(item[:-1]) # 防止最后一个字符因跳动产生变化
             return not self.queue[-2] == self.queue[-1]
         # 默认返回 False
-        return True
+        print("translate._judge方法if语句未覆盖所有情况")
+        return False
     
-    def _clear(self,text:str):
-        text  = text.strip()
-        if text == "":
+    def _clear(self, texts:tuple[str]) -> str:
+        # 作用是清除多余的行（如游戏UI等内容）
+        if not isinstance(texts, tuple):
             return ""
-        if text.count("\n")>=3:
-            # text = max(text.split("\n"), key=len) # 取最长的一行
-            strings = text.split("\n")
-            # 取最长的一行
-            max_len = max(len(s) for s in strings)
-            if max_len < 4:
+        if len(texts) == 0:
+            return ""
+        texts = [x.strip() for x in texts if isinstance(x,str)] # 去除前后空格，生成list
+        if len(texts)>=3: # 多行文本时，很可能其中有无意义的行
+            # 先删除已永久排除的行
+            texts = [x for x in texts if x not in self.exclude_set]
+            if len(texts) == 0:
                 return ""
-            longest_string = max(strings, key=len)
-            remaining_strings = []
-            
-            # 单次遍历以保持顺序
-            for s in strings:
-                if len(s) < max_len:
-                    remaining_strings.append(s.strip())
-            
-            return longest_string.strip()+"\n"+"  ".join(remaining_strings)
-        else:
-            return text
+            # 取最长的一行，信任其有意义。下一步准备加入排除词
+            longest_test = max(texts, key=lambda x:len(x))
+            # 排除最长行后把其它疑似UI的行加入计数字典
+            texts.remove(longest_test)
+            for item in texts:
+                if item in self.exclude_dict:
+                    self.exclude_dict[item] += 1
+                else:
+                    self.exclude_dict[item] = 1
+                # 超过3次的加入永久排除集合
+                if self.exclude_dict[item] >= 3:
+                    self.exclude_set.add(item)
+            return longest_test
+        else: # 少行文本，合并后翻译
+            texts = "\n".join([x.strip() for x in texts])
+            return texts
         
     def _translate_text(self, text: str) -> str:
         messages = [
