@@ -4,5 +4,5 @@ data/*
 __pycache__/*
 temp*
 *temp
-screenshot_config.json
 test*
+app_config.pk

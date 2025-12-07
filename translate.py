@@ -16,12 +16,13 @@ client = OpenAI(
 
 
 class Translator:
-    def __init__(self,size=2):
+    def __init__(self,size=2, exclude_set=None):
         self.queue = []
         self.size = size
-        self.exclude_dict = dict() # 需要排除的文本, key为文本内容，value为出现次数, 超过一定次数后加入exclude_set永久排除
-        self.exclude_amount = 5 # 超过该次数后加入永久排除集合
-        self.exclude_set = set() # 永久排除的文本
+        self.exclude_dict = dict()
+ # 需要排除的文本, key为文本内容，value为出现次数, 超过一定次数后加入exclude_set永久排除
+        self.exclude_amount = 3 # 超过该次数后加入永久排除集合
+        self.exclude_set = exclude_set if exclude_set is not None else set() # 永久排除的文本
 
     def translate(self, text) -> str:
         # 根据输入类型进行处理

@@ -5,7 +5,8 @@ import time
 import threading
 from datetime import datetime
 import os
-import json
+import pickle
+# import json
 
 from pathlib import Path
 from ocr import OCR
@@ -18,6 +19,9 @@ class ScreenshotApp:
         self.root.title("定时截图器")
         self.root.geometry("600x500")  # 增加初始窗口大小
         self.root.resizable(True, True)  # 允许调整大小
+
+        # translator的初始化参数
+        self.exclude_set = None
         
         # 设置最小窗口大小，防止过小
         self.root.minsize(550, 450)
@@ -295,7 +299,7 @@ class ScreenshotApp:
         self.ocr = OCR(languages=self.languages_mapping[self.source_lang_var.get()], gpu=self.use_gpu_ocr.get())
 
         # 初始化翻译官
-        self.translator = Translator()
+        self.translator = Translator(exclude_set=self.exclude_set)
         
         self.update_status("实时翻译开始...")
 
@@ -392,32 +396,40 @@ class ScreenshotApp:
         self.status_text.see(tk.END)
     
     def save_config(self):
+        if self.translator is not None:
+            self.exclude_dict = self.translator.exclude_dict
+            self.exclude_set = self.translator.exclude_set
         config = {
             "start_x": self.start_x,
             "start_y": self.start_y,
             "end_x": self.end_x,
             "end_y": self.end_y,
             "source_language": self.source_lang_var.get(),
-            "use_gpu_ocr": self.use_gpu_ocr.get()
+            "use_gpu_ocr": self.use_gpu_ocr.get(),
+            "translator_config": {
+                "exclude_set": self.exclude_set
+            }
         }
         
         try:
-            with open("screenshot_config.json", "w") as f:
-                json.dump(config, f)
+            with open("app_config.pk", "wb") as f:
+                pickle.dump(config, f)
         except Exception as e:
             print(f"保存配置失败: {e}")
     
     def load_config(self):
         try:
-            with open("screenshot_config.json", "r") as f:
-                config = json.load(f)
+            with open("app_config.pk", "rb") as f:
+                config = pickle.load(f)
             
-            self.source_lang_var.set(config.get("source_language", "英语"))
-            self.use_gpu_ocr.set(config.get("use_gpu_ocr", True))
-            self.start_x = config.get("start_x")
-            self.start_y = config.get("start_y")
-            self.end_x = config.get("end_x")
-            self.end_y = config.get("end_y")
+                self.source_lang_var.set(config.get("source_language", "英语"))
+                self.use_gpu_ocr.set(config.get("use_gpu_ocr", True))
+                self.start_x = config.get("start_x")
+                self.start_y = config.get("start_y")
+                self.end_x = config.get("end_x")
+                self.end_y = config.get("end_y")
+                self.exclude_set = config.get("translator_config", {}).get("exclude_set", set())
+
             
             if all(v is not None for v in [self.start_x, self.start_y, self.end_x, self.end_y]):
                 x1 = min(self.start_x, self.end_x)
