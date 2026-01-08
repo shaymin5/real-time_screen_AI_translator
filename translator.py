@@ -1,0 +1,69 @@
+from dotenv import load_dotenv
+from openai import OpenAI
+import os
+from abc import ABC, abstractmethod
+from typing import Union
+from checker import Checker
+
+
+load_dotenv()
+
+
+class Provider(ABC):
+
+    translator_prompt = "模拟卓越的翻译专家，把内容翻译成中文。只回答翻译结果。如果原文有文化隐喻，用中文的文化隐喻来表达。"
+
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def translate(self, text: str) -> str:
+        pass
+
+
+class Deepseek(Provider):
+
+    def __init__(self, env_api_key: str = 'DEEPSEEK_API_KEY', max_tokens: int = 256):
+        super().__init__()
+        self.api_key = os.environ[env_api_key]
+        self.maxtokens = max_tokens
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url="https://api.deepseek.com")
+        
+    def translate(self, text: str) -> str:
+        messages: list = [
+            {"role": "system", "content": self.translator_prompt},
+            {"role": "user", "content": text},
+        ]
+        response = self.client.chat.completions.create(
+            model="deepseek-chat",
+            messages=messages,
+            stream=False,
+            temperature=1.3,
+            max_tokens=self.maxtokens
+        )
+        response_content = response.choices[0].message.content
+        if response_content:
+            return response_content.strip()
+        else:
+            return ""
+
+
+class Translator:
+    
+    def __init__(self, ai_engine: Union[Provider, str, None] = None):
+        if ai_engine is None:
+            self.ai_engine = Deepseek()
+        elif isinstance(ai_engine, Provider):
+            self.ai_engine = ai_engine
+        else:
+            if ai_engine == 'deepseek':
+                self.ai_engine = Deepseek()
+        self.checker = Checker()
+
+    def translate(self, text: str) -> str:
+        if self.checker.check(text):
+            return self.ai_engine.translate(text)
+        else:
+            return ""
