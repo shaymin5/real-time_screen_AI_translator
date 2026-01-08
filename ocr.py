@@ -1,5 +1,6 @@
 import easyocr
 from typing import Union
+from pathlib import Path
 
 
 class GameOCR:
@@ -18,16 +19,16 @@ class GameOCR:
         self.exclude_set = exclude_set if exclude_set is not None else set() # 永久排除的文本
 
 
-    def img_to_text(self, image_path: str) -> str:
+    def img_to_text(self, image_path: Union[Path, str]) -> str:
         texts_tuple = self._img_to_tuple(image_path)
         if not texts_tuple:
             return ""
         else:
             return self._clear_tuple_to_text(texts_tuple)
 
-    def _img_to_tuple(self, image_path) -> tuple[str]:
+    def _img_to_tuple(self, image_path: Union[Path, str]) -> tuple[str]:
         result:list = self.reader.readtext(
-            image_path,
+            str(image_path),
             x_ths= 0.5, # 优化检测水平距离阈值，用于判断是否同一行，默认1，越小越敏感，检测游戏UI，防止多UI被识别成一句话。
             y_ths=0.3, # 优化检测垂直距离阈值，用于判断是否同一行，默认0.5，越小越敏感。
             paragraph=True)
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     ocr = GameOCR(languages=['en'])
     img_list = [r'test_pic\image copy.png', r'test_pic\image copy.png', r'test_pic\image copy 2.png']
     for i in img_list:
-        text = ocr.img_to_text(i)
+        text = ocr.img_to_text(Path(i))
         print(text)
     end_time = time.time()
     print(f"改进方案识别时间: {end_time - start_time:.2f} 秒")
