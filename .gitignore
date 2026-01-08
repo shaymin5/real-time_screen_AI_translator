@@ -5,4 +5,4 @@ __pycache__/*
 temp*
 *temp
 test*
-app_config.pk
+*.pk

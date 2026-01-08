@@ -4,41 +4,44 @@ import pyautogui
 import time
 import threading
 from datetime import datetime
-import os
 import pickle
+from pathlib import Path
 # import json
 
-from pathlib import Path
-from ocr import OCR
-from translate import Translator
+from ocr import GameOCR
+from translator import Translator
 from concurrent.futures import ThreadPoolExecutor
 
+
 class ScreenshotApp:
-    def __init__(self, root):
+    def __init__(self, root: tk.Tk):
+        # 加载配置
+        self.config: dict = self.load_config()
+
         self.root = root
         self.root.title("定时截图器")
         self.root.geometry("600x500")  # 增加初始窗口大小
         self.root.resizable(True, True)  # 允许调整大小
 
-        # translator的初始化参数
-        self.exclude_set = None
+        # translator的初始化参数，除外字符串集
+        self.exclude_set: set = self.config['exclude_set']
         
         # 设置最小窗口大小，防止过小
         self.root.minsize(550, 450)
         
-        # 截图区域坐标
-        self.start_x = None
-        self.start_y = None
-        self.end_x = None
-        self.end_y = None
+        # 加载截图区域坐标，默认全屏
+        self.start_x: int = self.config.get('start_x', 0)
+        self.start_y: int = self.config.get('start_y', 0)
+        self.end_x: int = self.config.get('end_x', self.root.winfo_screenwidth())  # 最大x值
+        self.end_y: int = self.config.get('end_y', self.root.winfo_screenheight())  # 最大y值
         
         # 截图控制变量
-        self.is_selecting = False
-        self.is_capturing = False
+        self.is_selecting: bool = False
+        self.is_capturing: bool = False
         self.capture_thread = None
-        self.interval = 0.4  # 截图时间间隔
-        self.path = os.path.join(os.getcwd(), "temp_screenshots")  # 保存路径
-        self.prefix = "temp_screenshot"  # 文件名前缀
+        self.interval: float = 0.4  # 截图时间间隔
+        self.screenshot_save_dir:Path = Path.cwd().resolve()/"temp_screenshots"  # 保存路径
+        self.temp_screenshot_prefix:str = "temp_screenshot"  # 文件名前缀
         
         # 初始化界面变量
         # 定义支持的语言列表
@@ -55,27 +58,20 @@ class ScreenshotApp:
             "西班牙语": ["es"],
             "俄语": ["ru"]
         }
-        self.source_lang_var = tk.StringVar(value="英语") # 源语言变量
-        self.use_gpu_ocr = tk.BooleanVar(value=True) # GPU OCR变量
+        self.source_lang_var: tk.StringVar = tk.StringVar(value=self.config.get('source_lang_var', '英语')) # 源语言变量
+        self.use_gpu_ocr: tk.BooleanVar = tk.BooleanVar(value=self.config.get('use_gpu_ocr', True)) # GPU OCR变量
 
         # 创建界面
         self.create_widgets()
-        
-        # 加载配置
-        # 一定要创建完再加载，这样就可以把初始化的状态更新为config的状态
-        self.load_config()
 
-        # 队列初始化
-        self.image_queue = None
-        self.text_queue = TextQueue2()
-        # 翻译官初始化
-        self.translator = None
+        # 翻译家初始化
+        self.translator: Translator = Translator()
         # 创建线程池
-        self.executor = ThreadPoolExecutor(max_workers=1)
+        self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1)
         # 跟踪当前翻译任务
         self.current_translation_future = None
         # 创建OCR对象
-        self.ocr = OCR(languages=['en'])
+        self.ocr: GameOCR = GameOCR()
 
     def create_widgets(self):
     # 主框架
@@ -106,7 +102,7 @@ class ScreenshotApp:
         area_frame.pack(fill=tk.X, pady=(0, 10))
         
         ttk.Button(area_frame, text="1. 框选区域", command=self.start_area_selection).pack(side=tk.LEFT, padx=(0, 10))
-        self.area_label = ttk.Label(area_frame, text="未选择区域")
+        self.area_label = ttk.Label(area_frame, text=f"区域: ({self.start_x}, {self.start_y}) - ({self.end_x}, {self.end_y})")
         self.area_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # 语言设置部分
@@ -225,14 +221,12 @@ class ScreenshotApp:
         self.selection_rect.place(x=self.start_x, y=self.start_y, width=1, height=1)
     
     def on_selection_drag(self, event):
-        if self.start_x is not None and self.start_y is not None:
-            # 更新选择矩形
-            x = min(self.start_x, event.x)
-            y = min(self.start_y, event.y)
-            width = abs(event.x - self.start_x)
-            height = abs(event.y - self.start_y)
-            
-            self.selection_rect.place(x=x, y=y, width=width, height=height)
+        # 更新选择矩形
+        x = min(self.start_x, event.x)
+        y = min(self.start_y, event.y)
+        width = abs(event.x - self.start_x)
+        height = abs(event.y - self.start_y)
+        self.selection_rect.place(x=x, y=y, width=width, height=height)
     
     def on_selection_end(self, event):
         self.end_x = event.x
@@ -255,26 +249,20 @@ class ScreenshotApp:
         # 保存配置
         self.save_config()
     
-    def cancel_selection(self, event=None):
+    def cancel_selection(self, event):
         self.selection_window.destroy()
         self.root.deiconify()
         self.is_selecting = False
         self.update_status("区域选择已取消")
         
     def start_capture(self):
-        # 验证输入
-        
-        if self.start_x is None or self.start_y is None or self.end_x is None or self.end_y is None:
-            messagebox.showerror("错误", "请先选择截图区域")
-            return
-        
+
         # 确保保存目录存在
-        save_path = self.path
-        if not os.path.exists(save_path):
+        if not self.screenshot_save_dir.exists():
             try:
-                os.makedirs(save_path)
+                self.screenshot_save_dir.mkdir(parents=False,exist_ok=True)
             except OSError as e:
-                messagebox.showerror("错误", f"无法创建保存目录: {e}")
+                messagebox.showerror("错误", f"截图保存目录创建异常: {e}")
                 return
         
         # 更新UI状态
@@ -293,13 +281,7 @@ class ScreenshotApp:
         self.stop_button.config(state=tk.NORMAL)
         
         # 初始化图片队列
-        self.image_queue = ImageQueue2(Path(self.path), size=20)
-
-        # 初始化OCR
-        self.ocr = OCR(languages=self.languages_mapping[self.source_lang_var.get()], gpu=self.use_gpu_ocr.get())
-
-        # 初始化翻译官
-        self.translator = Translator(exclude_set=self.exclude_set)
+        self.image_queue = ImageQueue2(self.screenshot_save_dir, size=20)
         
         self.update_status("实时翻译开始...")
 
@@ -340,8 +322,8 @@ class ScreenshotApp:
                 
                 # 生成文件名
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                filename = f"{self.prefix}_{timestamp}.png"
-                filepath = os.path.join(self.path, filename)
+                filename = f"{self.temp_screenshot_prefix}_{timestamp}.png"
+                filepath = self.screenshot_save_dir / filename
                 
                 # 保存图片
                 screenshot.save(filepath)
@@ -349,33 +331,31 @@ class ScreenshotApp:
                 self.image_queue.put(filepath)
 
                 # 进行OCR识别 todo
-                ocr_result = self.ocr.ocr_image(filepath)
-                # 通过text_queue判断是否需要翻译
-                if self.text_queue.compare(ocr_result):
-                    # 检查是否有正在进行的翻译任务
-                    if self.current_translation_future is None or self.current_translation_future.done():
-                        # 没有正在进行的翻译任务，提交新的翻译任务
-                        future = self.executor.submit(self.translator.translate, ocr_result)
-                        self.current_translation_future = future
-                        
-                        # 设置回调函数，翻译完成后在主线程更新UI
-                        def on_translation_done(future):
-                            try:
-                                text = future.result()
-                                if text:
-                                    self.root.after(0, self.update_status, f"\n{text}")
-                            except Exception as e:
-                                print(f"翻译失败: {e}")
-                            finally:
-                                # 任务完成后清理引用
-                                if self.current_translation_future == future:
-                                    self.current_translation_future = None
-                        
-                        future.add_done_callback(on_translation_done)
-                    else:
-                        # 有翻译任务正在进行，跳过本次翻译
-                        # print("跳过翻译：上一个翻译任务尚未完成")
-                        pass
+                ocr_result = self.ocr.img_to_text(filepath)
+                # 检查是否有正在进行的翻译任务
+                if self.current_translation_future is None or self.current_translation_future.done():
+                    # 没有正在进行的翻译任务，提交新的翻译任务
+                    future = self.executor.submit(self.translator.translate, ocr_result)
+                    self.current_translation_future = future
+                    
+                    # 设置回调函数，翻译完成后在主线程更新UI
+                    def on_translation_done(future):
+                        try:
+                            text = future.result()
+                            if text:
+                                self.root.after(0, self.update_status, f"\n{text}")
+                        except Exception as e:
+                            print(f"翻译失败: {e}")
+                        finally:
+                            # 任务完成后清理引用
+                            if self.current_translation_future == future:
+                                self.current_translation_future = None
+                    
+                    future.add_done_callback(on_translation_done)
+                else:
+                    # 有翻译任务正在进行，跳过本次翻译
+                    # print("跳过翻译：上一个翻译任务尚未完成")
+                    pass
 
             except Exception as e:
                 self.root.after(0, self.update_status, f"截图失败: {str(e)}")
@@ -396,79 +376,43 @@ class ScreenshotApp:
         self.status_text.see(tk.END)
     
     def save_config(self):
-        if self.translator is not None:
-            self.exclude_dict = self.translator.exclude_dict
-            self.exclude_set = self.translator.exclude_set
         config = {
             "start_x": self.start_x,
             "start_y": self.start_y,
             "end_x": self.end_x,
             "end_y": self.end_y,
-            "source_language": self.source_lang_var.get(),
+            "source_lang_var": self.source_lang_var.get(),
             "use_gpu_ocr": self.use_gpu_ocr.get(),
-            "translator_config": {
-                "exclude_set": self.exclude_set
-            }
+            "exclude_set": self.ocr.exclude_set
         }
-        
+        self.config.update(config)
         try:
             with open("app_config.pk", "wb") as f:
-                pickle.dump(config, f)
+                pickle.dump(self.config, f)
         except Exception as e:
             print(f"保存配置失败: {e}")
     
-    def load_config(self):
+    def load_config(self) -> dict:
         try:
             with open("app_config.pk", "rb") as f:
-                config = pickle.load(f)
-            
-                self.source_lang_var.set(config.get("source_language", "英语"))
-                self.use_gpu_ocr.set(config.get("use_gpu_ocr", True))
-                self.start_x = config.get("start_x")
-                self.start_y = config.get("start_y")
-                self.end_x = config.get("end_x")
-                self.end_y = config.get("end_y")
-                self.exclude_set = config.get("translator_config", {}).get("exclude_set", set())
-
-            
-            if all(v is not None for v in [self.start_x, self.start_y, self.end_x, self.end_y]):
-                x1 = min(self.start_x, self.end_x)
-                y1 = min(self.start_y, self.end_y)
-                x2 = max(self.start_x, self.end_x)
-                y2 = max(self.start_y, self.end_y)
-                self.area_label.config(text=f"区域: ({x1}, {y1}) - ({x2}, {y2})")
-                
-        except FileNotFoundError:
-            pass  # 配置文件不存在，使用默认值
+                config: dict = pickle.load(f)
+                config.setdefault("source_lang_var", "英语")
+                config.setdefault("use_gpu_ocr", True)
+                config.setdefault("exclude_set", set())
         except Exception as e:
-            print(f"加载配置失败: {e}")
+            print(f"加载配置失败，使用默认配置: {e}")
+            config = {
+                "source_lang_var": "英语",
+                "use_gpu_ocr": True,
+                "exclude_set": set()
+            }
+            return config
+        return config
     
     def on_closing(self):
         self.is_capturing = False
         self.save_config()
         self.root.destroy()
-
-
-class TextQueue2:
-    def __init__(self, size=2):
-        self.items:list[str] = []
-        self.size = size
-    
-    def compare(self,item):
-        # queue 未满时，直接添加
-        if len(self.items) < self.size:
-            self.items.append(item)
-            return False
-        # queue 已满时，弹出最早的，添加新的，比较最后两个
-        elif len(self.items) >= self.size:
-            self.items.pop(0)
-            self.items.append(item)
-            return self.items[-2] == self.items[-1]
-        return False
-    
-    def get(self):
-        if len(self.items) >= 2:
-            return self.items[-1]
 
 
 class ImageQueue2:
@@ -480,8 +424,8 @@ class ImageQueue2:
         for png_file in self.parent_path.glob("*.png"):
             png_file.unlink()  # 删除文件
     
-    def put(self, item):
-        item = Path(item)
+    def put(self, item: Path):
+        item = item
         if len(self.items) >= self.size:
             unlink = self.items.pop(0)
             unlink.unlink()  # 删除文件
