@@ -54,6 +54,8 @@ class Translator:
     def __init__(self, ai_engine: str = 'deepseek'):
         if ai_engine == 'deepseek':
             self.ai_engine: Provider = Deepseek()
+        else:
+            raise ValueError("Unsupported AI engine")
         self.checker: Checker = Checker()
 
     def translate(self, text: str) -> str:
