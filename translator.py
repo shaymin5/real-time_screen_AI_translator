@@ -2,7 +2,6 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import os
 from abc import ABC, abstractmethod
-from typing import Union
 from checker import Checker
 
 
@@ -52,15 +51,10 @@ class Deepseek(Provider):
 
 class Translator:
     
-    def __init__(self, ai_engine: Union[Provider, str, None] = None):
-        if ai_engine is None:
-            self.ai_engine = Deepseek()
-        elif isinstance(ai_engine, Provider):
-            self.ai_engine = ai_engine
-        else:
-            if ai_engine == 'deepseek':
-                self.ai_engine = Deepseek()
-        self.checker = Checker()
+    def __init__(self, ai_engine: str = 'deepseek'):
+        if ai_engine == 'deepseek':
+            self.ai_engine: Provider = Deepseek()
+        self.checker: Checker = Checker()
 
     def translate(self, text: str) -> str:
         if self.checker.check(text):
