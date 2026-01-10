@@ -24,7 +24,7 @@ class SyncBufferedTTSPlayer:
         self.stop_event = threading.Event()
         
         # 线程池
-        self.executor = ThreadPoolExecutor(max_workers=2)
+        self.executor = ThreadPoolExecutor(max_workers=1)
     
     def _generate_to_queue(self, audio_queue, kwargs):
         """生成音频到队列"""

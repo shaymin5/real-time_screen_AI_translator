@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import os
 from abc import ABC, abstractmethod
-from checker import Checker
+from utils import Checker
 from voxcpm_tts.tts.ttsplayer import TTSplayer
 from typing import Union
 

@@ -69,6 +69,9 @@ class TTSplayer:
             self.generate_conf.update(generate_conf)
             self.generate_conf['text'] = text
             self.player.play_streaming(self.generate_conf) # 接收外来的合成config
+
+    def stop(self):
+        self.player.stop()
     
 
 
