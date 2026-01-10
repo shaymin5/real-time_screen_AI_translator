@@ -1,30 +1,27 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
-import pyautogui
-import time
-import threading
-from datetime import datetime
+from tkinter import ttk
 import pickle
 from pathlib import Path
 # import json
 
-from ocr import GameOCR
-from translator import Translator
-from concurrent.futures import ThreadPoolExecutor
+from manager import Manager
+# from study_manage import Manager
 
 
 class ScreenshotApp:
     def __init__(self, root: tk.Tk):
         # 加载配置
         self.config: dict = self.load_config()
+        # 创建任务管理器
+        self.manager = Manager()
+        # translator的初始化参数，除外字符串集
+        self.exclude_set: set = self.config['exclude_set']
+        self.manager.set_ocr_conf(self.exclude_set)
 
         self.root = root
         self.root.title("定时截图器")
         self.root.geometry("600x500")  # 增加初始窗口大小
         self.root.resizable(True, True)  # 允许调整大小
-
-        # translator的初始化参数，除外字符串集
-        self.exclude_set: set = self.config['exclude_set']
         
         # 设置最小窗口大小，防止过小
         self.root.minsize(550, 450)
@@ -63,15 +60,6 @@ class ScreenshotApp:
 
         # 创建界面
         self.create_widgets()
-
-        # 翻译家初始化
-        self.translator: Translator = Translator(need_tts=True)
-        # 创建线程池
-        self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1)
-        # 跟踪当前翻译任务
-        self.current_translation_future = None
-        # 创建OCR对象
-        self.ocr: GameOCR = GameOCR()
 
     def create_widgets(self):
     # 主框架
@@ -257,14 +245,6 @@ class ScreenshotApp:
         
     def start_capture(self):
 
-        # 确保保存目录存在
-        if not self.screenshot_save_dir.exists():
-            try:
-                self.screenshot_save_dir.mkdir(parents=False,exist_ok=True)
-            except OSError as e:
-                messagebox.showerror("错误", f"截图保存目录创建异常: {e}")
-                return
-        
         # 更新UI状态
         self.is_capturing = True
         self.start_button.config(state=tk.DISABLED)
@@ -280,17 +260,9 @@ class ScreenshotApp:
         self.start_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
         
-        # 初始化图片队列
-        self.image_queue = ImageQueue2(self.screenshot_save_dir, size=20)
-        
         self.update_status("实时翻译开始...")
 
-        # 启动截图线程
-        self.capture_thread = threading.Thread(
-            target=self.capture_loop, 
-            daemon=True
-        )
-        self.capture_thread.start()
+        self.manager.start(self.start_x, self.start_y, self.end_x, self.end_y)
     
     def stop_capture(self):
         self.is_capturing = False
@@ -300,76 +272,10 @@ class ScreenshotApp:
         # 更新按钮状态
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
+        # 停止翻译流程
+        self.manager.stop()
         
         self.update_status("翻译已停止")    
-    
-    def capture_loop(self):
-        
-        start_time = time.time()
-        while self.is_capturing:
-            # 计算截图区域
-            x1 = min(self.start_x, self.end_x)
-            y1 = min(self.start_y, self.end_y)
-            x2 = max(self.start_x, self.end_x)
-            y2 = max(self.start_y, self.end_y)
-            
-            width = x2 - x1
-            height = y2 - y1
-            
-            # 截图
-            try:
-                screenshot = pyautogui.screenshot(region=(x1, y1, width, height))
-                
-                # 生成文件名
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                filename = f"{self.temp_screenshot_prefix}_{timestamp}.png"
-                filepath = self.screenshot_save_dir / filename
-                
-                # 保存图片
-                screenshot.save(filepath)
-                # 更新队列
-                self.image_queue.put(filepath)
-
-                # 进行OCR识别 todo
-                ocr_result = self.ocr.img_to_text(filepath)
-                # 检查是否有正在进行的翻译任务
-                if self.current_translation_future is None or self.current_translation_future.done():
-                    # 没有正在进行的翻译任务，提交新的翻译任务
-                    future = self.executor.submit(self.translator.translate_and_tts, ocr_result)
-                    self.current_translation_future = future
-                    
-                    # 设置回调函数，翻译完成后在主线程更新UI
-                    def on_translation_done(future):
-                        try:
-                            text = future.result()
-                            if text:
-                                self.root.after(0, self.update_status, f"\n{text}")
-                        except Exception as e:
-                            print(f"翻译失败: {e}")
-                        finally:
-                            # 任务完成后清理引用
-                            if self.current_translation_future == future:
-                                self.current_translation_future = None
-                    
-                    future.add_done_callback(on_translation_done)
-                else:
-                    # 有翻译任务正在进行，跳过本次翻译
-                    # print("跳过翻译：上一个翻译任务尚未完成")
-                    pass
-
-            except Exception as e:
-                self.root.after(0, self.update_status, f"截图失败: {str(e)}")
-            
-            # 等待指定间隔
-            for _ in range(int(self.interval * 10)):
-                if not self.is_capturing:
-                    break
-                if start_time + self.interval <= time.time():
-                    start_time = time.time()
-                    break
-                time.sleep(0.1)
-            else:
-                start_time = time.time()
     
     def update_status(self, message):
         self.status_text.insert(tk.END, f"{message}\n")
@@ -383,7 +289,7 @@ class ScreenshotApp:
             "end_y": self.end_y,
             "source_lang_var": self.source_lang_var.get(),
             "use_gpu_ocr": self.use_gpu_ocr.get(),
-            "exclude_set": self.ocr.exclude_set
+            "exclude_set": self.manager.get_ocr_exclude_set()
         }
         self.config.update(config)
         try:
@@ -413,31 +319,6 @@ class ScreenshotApp:
         self.is_capturing = False
         self.save_config()
         self.root.destroy()
-
-
-class ImageQueue2:
-    def __init__(self, parent_path: Path,size=5):
-        self.items = []
-        self.parent_path = parent_path
-        self.size = size
-
-        for png_file in self.parent_path.glob("*.png"):
-            png_file.unlink()  # 删除文件
-    
-    def put(self, item: Path):
-        item = item
-        if len(self.items) >= self.size:
-            unlink = self.items.pop(0)
-            unlink.unlink()  # 删除文件
-        self.items.append(item)
-    
-    def get(self):
-        if not self.is_empty() and len(self.items) >= 2:
-            return self.items[-2], self.items[-1]
-        return None
-    
-    def is_empty(self):
-        return len(self.items) == 0
     
 if __name__ == "__main__":
     
