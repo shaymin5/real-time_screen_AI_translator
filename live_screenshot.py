@@ -65,7 +65,7 @@ class ScreenshotApp:
         self.create_widgets()
 
         # 翻译家初始化
-        self.translator: Translator = Translator()
+        self.translator: Translator = Translator(need_tts=True)
         # 创建线程池
         self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1)
         # 跟踪当前翻译任务
@@ -335,7 +335,7 @@ class ScreenshotApp:
                 # 检查是否有正在进行的翻译任务
                 if self.current_translation_future is None or self.current_translation_future.done():
                     # 没有正在进行的翻译任务，提交新的翻译任务
-                    future = self.executor.submit(self.translator.translate, ocr_result)
+                    future = self.executor.submit(self.translator.translate_and_tts, ocr_result)
                     self.current_translation_future = future
                     
                     # 设置回调函数，翻译完成后在主线程更新UI

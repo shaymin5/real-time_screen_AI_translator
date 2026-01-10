@@ -3,6 +3,8 @@ from openai import OpenAI
 import os
 from abc import ABC, abstractmethod
 from checker import Checker
+from voxcpm_tts.tts.ttsplayer import TTSplayer
+from typing import Union
 
 
 load_dotenv()
@@ -51,15 +53,29 @@ class Deepseek(Provider):
 
 class Translator:
     
-    def __init__(self, ai_engine: str = 'deepseek'):
+    def __init__(self, ai_engine: str = 'deepseek', need_tts: bool = False):
         if ai_engine == 'deepseek':
             self.ai_engine: Provider = Deepseek()
         else:
             raise ValueError("Unsupported AI engine")
         self.checker: Checker = Checker()
+        self.tts_player: Union[TTSplayer, None] = None
+        if need_tts:
+            self.tts_player = TTSplayer()
+            
 
     def translate(self, text: str) -> str:
         if self.checker.check(text):
             return self.ai_engine.translate(text)
         else:
             return ""
+        
+    def translate_and_tts(self, text: str):
+        if self.tts_player is None:
+            raise RuntimeError('tts_player模块未正常加载。')
+        else:
+            text_translate = self.translate(text)
+            if text_translate:
+                self.tts_player.generate_and_play_streaming(text_translate) # 减少步数以追求稳定输出速度
+            else:
+                pass
