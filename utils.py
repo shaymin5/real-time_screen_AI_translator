@@ -40,14 +40,17 @@ class FadeQueue:
     def __init__(self, maxsize: int = 0) -> None:
         self.queue = queue.Queue(maxsize=maxsize)
     def put(self, item: Any):
-        while self.queue.full():
-            try:
-                self.queue.get_nowait()
-                self.queue.put(item)
-            except queue.Full:
-                pass
-            except queue.Empty:
-                self.queue.put(item)
+        try:
+            self.queue.put(item)
+        except queue.Full:
+            while self.queue.full():
+                try:
+                    self.queue.get_nowait()
+                    self.queue.put(item)
+                except queue.Full:
+                    pass
+                except queue.Empty:
+                    self.queue.put(item)
     def get(self) -> Any:
         return self.queue.get()
     def empty(self) -> bool:
