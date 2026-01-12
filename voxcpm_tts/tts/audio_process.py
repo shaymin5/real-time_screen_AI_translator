@@ -187,10 +187,16 @@ if __name__ == "__main__":
                 "type": "speak",
                 "text": f"这是一次稳定的语音输出测试，测试第{i}次"
             })
-        if i > 5:
-            time.sleep(10)
-        else:
-            time.sleep(4)
+        if i==6:
+            cmd_queue.put({
+                "type": "stop"
+            })
+        if i == 8:
+            cmd_queue.put({
+                "type": "speak",
+                "text": f"这是一次稳定的语音输出测试，测试第{i}次"
+            })
+        time.sleep(4)
 
     time.sleep(10)
     cmd_queue.put({"type": "exit"})
