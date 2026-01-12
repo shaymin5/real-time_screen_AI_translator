@@ -1,5 +1,12 @@
 import tkinter as tk
+import logging
 from live_screenshot import ScreenshotApp
+
+
+logging.basicConfig(
+    level=logging.ERROR,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 def main():
     root = tk.Tk()
