@@ -1,18 +1,16 @@
-# audio_process.py
 import sounddevice as sd
 import numpy as np
 import threading
-import multiprocessing as mp
 import collections
 from typing import Union
 
 
 class AudioEngine:
     """
-    纯音频引擎：
-    - sounddevice callback
-    - ring buffer
-    - 不知道 TTS、不知道进程
+    纯音频设备层：
+    - 不知道 TTS
+    - 不知道任务
+    - 不做任何调度
     """
 
     def __init__(self, sample_rate: int, block_size: int = 1024, max_seconds=5.0):
@@ -53,37 +51,9 @@ class AudioEngine:
             self._stream = None
 
     def clear(self):
-        """抢占时清空残余音频"""
         with self.lock:
             self.buffer.clear()
 
     def feed(self, chunk: np.ndarray):
         with self.lock:
             self.buffer.extend(chunk.tolist())
-
-if __name__ == "__main__":
-    import time
-
-    from audio_process import audio_process_entry
-
-    cmd_queue = mp.Queue()
-    audio_proc = mp.Process(
-        target=audio_process_entry,
-        args=(cmd_queue,),
-        daemon=False,  # 关键
-    )
-    audio_proc.start()
-
-    for i in range(10):
-        cmd_queue.put({
-            "type": "speak",
-            "content": f"测试发言：第 {i} 次"
-        })
-        time.sleep(5)
-    # cmd_queue.put({
-    #     'type': 'speak',
-    #     'content': '你好朋友，这是一次声音测试。'
-    # })
-    time.sleep(5)
-    cmd_queue.put({"type": "exit"})
-    audio_proc.join()
