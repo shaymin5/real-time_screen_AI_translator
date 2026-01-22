@@ -1,6 +1,6 @@
 import tkinter as tk
 import logging
-from live_screenshot import ScreenshotApp
+from gui import GameEyesApp
 
 
 logging.basicConfig(
@@ -10,7 +10,7 @@ logging.basicConfig(
 
 def main():
     root = tk.Tk()
-    app = ScreenshotApp(root)
+    app = GameEyesApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
 

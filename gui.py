@@ -8,7 +8,7 @@ from manager import Manager
 # from study_manage import Manager
 
 
-class ScreenshotApp:
+class GameEyesApp:
     def __init__(self, root: tk.Tk):
         # 加载配置
         self.config: dict = self.load_config()
@@ -317,12 +317,13 @@ class ScreenshotApp:
     
     def on_closing(self):
         self.is_capturing = False
+        self.manager.stop()
         self.save_config()
         self.root.destroy()
     
 if __name__ == "__main__":
     
     root = tk.Tk()
-    app = ScreenshotApp(root)
+    app = GameEyesApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
