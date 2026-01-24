@@ -1,25 +1,47 @@
 import tkinter as tk
 from tkinter import ttk
 import pickle
-from pathlib import Path
-# import json
+import threading
+import logging
 
-from manager import Manager
-# from study_manage import Manager
+# 导入新的controller模块
+try:
+    from controller import GameTranslationController
+except ImportError:
+    # 如果controller模块不存在，创建一个简单的占位符
+    logging.error("警告: controller模块未找到，请确保controller.py存在")
+    raise ImportError()
+    # 创建简单的占位符类
+    # class GameTranslationController:
+    #     def __init__(self, **kwargs):
+    #         pass
+    #     def start(self, region):
+    #         print(f"Controller start called with region: {region}")
+    #     def stop(self):
+    #         print("Controller stop called")
+    #     def get_ocr_exclude_set(self):
+    #         return set()
 
 
 class GameEyesApp:
     def __init__(self, root: tk.Tk):
+        # 配置日志
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        )
+        
         # 加载配置
         self.config: dict = self.load_config()
-        # 创建任务管理器
-        self.manager = Manager()
+        
+        # 创建controller实例
+        self.controller = None
+        
         # translator的初始化参数，除外字符串集
         self.exclude_set: set = self.config['exclude_set']
-        self.manager.set_ocr_conf(self.exclude_set)
 
         self.root = root
-        self.root.title("定时截图器")
+        self.root.title("游戏实时翻译器")
         self.root.geometry("600x500")  # 增加初始窗口大小
         self.root.resizable(True, True)  # 允许调整大小
         
@@ -35,10 +57,7 @@ class GameEyesApp:
         # 截图控制变量
         self.is_selecting: bool = False
         self.is_capturing: bool = False
-        self.capture_thread = None
         self.interval: float = 0.4  # 截图时间间隔
-        self.screenshot_save_dir:Path = Path.cwd().resolve()/"temp_screenshots"  # 保存路径
-        self.temp_screenshot_prefix:str = "temp_screenshot"  # 文件名前缀
         
         # 初始化界面变量
         # 定义支持的语言列表
@@ -134,9 +153,6 @@ class GameEyesApp:
         )
         note_label.pack(fill=tk.X, padx=5, pady=(0, 5))
         
-        # 添加一个方法来获取语言代码
-        # self.setup_language_mapping()
-
         # 状态显示 - 使用pack并允许扩展
         self.status_frame = ttk.LabelFrame(main_frame, text="状态", padding="10")
         self.status_frame.pack(fill=tk.BOTH, expand=True)
@@ -244,7 +260,7 @@ class GameEyesApp:
         self.update_status("区域选择已取消")
         
     def start_capture(self):
-
+        """开始翻译流程"""
         # 更新UI状态
         self.is_capturing = True
         self.start_button.config(state=tk.DISABLED)
@@ -256,32 +272,101 @@ class GameEyesApp:
         # 隐藏设置区域
         self.hide_settings()
         
-        # 更新按钮状态
-        self.start_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
-        
         self.update_status("实时翻译开始...")
-
-        self.manager.start(self.start_x, self.start_y, self.end_x, self.end_y)
+        
+        # 获取语言设置
+        selected_lang = self.source_lang_var.get()
+        ocr_languages = self.languages_mapping.get(selected_lang, ["en"])
+        
+        # 创建并启动controller
+        try:
+            # 如果已有controller在运行，先停止
+            if self.controller is not None:
+                self.controller.stop()
+                self.controller = None
+            
+            # 创建新的controller
+            self.controller = GameTranslationController(
+                ocr_languages=ocr_languages,
+                ocr_use_gpu=self.use_gpu_ocr.get(),
+                ocr_exclude_set=self.exclude_set,
+                capture_interval=self.interval,
+                max_text_length=200
+            )
+            
+            # 在单独的线程中启动controller，避免阻塞GUI
+            def run_controller():
+                try:
+                    if self.controller is None:
+                        self.update_status("错误: controller未初始化")
+                        self.root.after(0, self._reset_buttons)
+                        return
+                    region = (self.start_x, self.start_y, self.end_x, self.end_y)
+                    self.controller.start(region)
+                except Exception as e:
+                    self.update_status(f"启动翻译失败: {e}")
+                    # 恢复按钮状态
+                    self.root.after(0, self._reset_buttons)
+            
+            # 启动controller线程
+            controller_thread = threading.Thread(target=run_controller, daemon=True)
+            controller_thread.start()
+            
+            self.update_status(f"翻译已启动，区域: ({self.start_x}, {self.start_y}) - ({self.end_x}, {self.end_y})")
+            self.update_status(f"OCR语言: {selected_lang}, GPU加速: {'启用' if self.use_gpu_ocr.get() else '禁用'}")
+            
+        except Exception as e:
+            self.update_status(f"启动翻译时发生错误: {e}")
+            self._reset_buttons()
     
     def stop_capture(self):
+        """停止翻译流程"""
         self.is_capturing = False
 
-         # 显示设置区域
+        # 显示设置区域
         self.show_settings()
+        
+        # 停止controller
+        if self.controller is not None:
+            try:
+                self.controller.stop()
+                self.update_status("正在停止翻译...")
+            except Exception as e:
+                self.update_status(f"停止翻译时发生错误: {e}")
+            finally:
+                self.controller = None
+        
         # 更新按钮状态
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
-        # 停止翻译流程
-        self.manager.stop()
         
-        self.update_status("翻译已停止")    
+        self.update_status("翻译已停止")
+        
+        # 保存OCR排除集
+        if self.controller is not None:
+            self.exclude_set = self.controller.get_ocr_exclude_set()
+            self.save_config()
+    
+    def _reset_buttons(self):
+        """重置按钮状态"""
+        self.start_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
+        self.is_capturing = False
     
     def update_status(self, message):
+        """更新状态显示"""
         self.status_text.insert(tk.END, f"{message}\n")
         self.status_text.see(tk.END)
     
     def save_config(self):
+        """保存配置"""
+        # 获取OCR排除集
+        exclude_set = set()
+        if self.controller is not None:
+            exclude_set = self.controller.get_ocr_exclude_set()
+        elif hasattr(self, 'exclude_set'):
+            exclude_set = self.exclude_set
+        
         config = {
             "start_x": self.start_x,
             "start_y": self.start_y,
@@ -289,16 +374,17 @@ class GameEyesApp:
             "end_y": self.end_y,
             "source_lang_var": self.source_lang_var.get(),
             "use_gpu_ocr": self.use_gpu_ocr.get(),
-            "exclude_set": self.manager.get_ocr_exclude_set()
+            "exclude_set": exclude_set
         }
         self.config.update(config)
         try:
             with open("app_config.pk", "wb") as f:
                 pickle.dump(self.config, f)
         except Exception as e:
-            print(f"保存配置失败: {e}")
+            self.update_status(f"保存配置失败: {e}")
     
     def load_config(self) -> dict:
+        """加载配置"""
         try:
             with open("app_config.pk", "rb") as f:
                 config: dict = pickle.load(f)
@@ -306,23 +392,29 @@ class GameEyesApp:
                 config.setdefault("use_gpu_ocr", True)
                 config.setdefault("exclude_set", set())
         except Exception as e:
-            print(f"加载配置失败，使用默认配置: {e}")
+            self.update_status(f"加载配置失败，使用默认配置: {e}")
             config = {
                 "source_lang_var": "英语",
                 "use_gpu_ocr": True,
                 "exclude_set": set()
             }
-            return config
         return config
     
     def on_closing(self):
+        """窗口关闭时的处理"""
         self.is_capturing = False
-        self.manager.stop()
+        
+        # 停止controller
+        if self.controller is not None:
+            self.controller.stop()
+        
+        # 保存配置
         self.save_config()
+        
         self.root.destroy()
-    
+
+
 if __name__ == "__main__":
-    
     root = tk.Tk()
     app = GameEyesApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)

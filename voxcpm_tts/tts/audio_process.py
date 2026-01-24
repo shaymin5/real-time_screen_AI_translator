@@ -8,7 +8,7 @@ import time
 from voxcpm import VoxCPM
 from voxcpm.model.voxcpm import LoRAConfig
 
-from modern_player import AudioEngine
+from .modern_player import AudioEngine
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 
@@ -176,28 +176,33 @@ if __name__ == "__main__":
     )
     audio_proc.start()
     time.sleep(15)
-    for i in range(15):
-        if i == 5:
-            cmd_queue.put({
-                "type": "speak",
-                "text": f"这是超过5秒的的语音输出测试，测试第{i}次，超级超级超级长，长到无法想象，你不会停止，也不知道它最后能到哪里。也许我们应该静下心来慢慢等待"
-            })
-        else:
-            cmd_queue.put({
-                "type": "speak",
-                "text": f"这是一次稳定的语音输出测试，测试第{i}次"
-            })
-        if i==6:
-            cmd_queue.put({
-                "type": "stop"
-            })
-        if i == 8:
-            cmd_queue.put({
-                "type": "speak",
-                "text": f"这是一次稳定的语音输出测试，测试第{i}次"
-            })
-        time.sleep(4)
-
-    time.sleep(10)
+    # for i in range(15):
+    #     if i == 5:
+    #         cmd_queue.put({
+    #             "type": "speak",
+    #             "text": f"这是超过5秒的的语音输出测试，测试第{i}次，超级超级超级长，长到无法想象，你不会停止，也不知道它最后能到哪里。也许我们应该静下心来慢慢等待"
+    #         })
+    #     else:
+    #         cmd_queue.put({
+    #             "type": "speak",
+    #             "text": f"这是一次稳定的语音输出测试，测试第{i}次"
+    #         })
+    #     if i==6:
+    #         cmd_queue.put({
+    #             "type": "stop"
+    #         })
+    #     if i == 8:
+    #         cmd_queue.put({
+    #             "type": "speak",
+    #             "text": f"这是一次稳定的语音输出测试，测试第{i}次"
+    #         })
+    #     time.sleep(4)
+    #
+    # time.sleep(10)
+    cmd_queue.put({
+            "type": "speak",
+            "text": "他揣着个素面的小盒子，盒面裂了纹。里头装着的，是某个村落的最后一点念想——那地方早从所有地图上抹去了名姓。他这一路，不为功名，只为讨个明白。"
+        })
+    time.sleep(20)
     cmd_queue.put({"type": "exit"})
     audio_proc.join()

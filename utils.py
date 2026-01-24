@@ -1,8 +1,8 @@
 import Levenshtein
 from collections import deque
-from typing import Any, Union
-from pathlib import Path
+from typing import Any
 import queue
+
 
 class Checker:
     """
@@ -37,20 +37,21 @@ class Checker:
             
 
 class FadeQueue:
-    def __init__(self, maxsize: int = 0) -> None:
+    def __init__(self, maxsize: int = 10, timeout: float = 3) -> None:
         self.queue = queue.Queue(maxsize=maxsize)
+        self.timeout = timeout
     def put(self, item: Any):
         try:
-            self.queue.put(item)
+            self.queue.put(item,timeout=self.timeout)
         except queue.Full:
             while self.queue.full():
                 try:
                     self.queue.get_nowait()
-                    self.queue.put(item)
+                    self.queue.put(item,timeout=self.timeout)
                 except queue.Full:
                     pass
                 except queue.Empty:
-                    self.queue.put(item)
+                    self.queue.put(item,timeout=self.timeout)
     def get(self) -> Any:
         return self.queue.get()
     def empty(self) -> bool:
@@ -59,3 +60,8 @@ class FadeQueue:
         return self.queue.get_nowait()
     def put_nowait(self, item: Any):
         return self.queue.put_nowait(item)
+    
+
+
+    
+
