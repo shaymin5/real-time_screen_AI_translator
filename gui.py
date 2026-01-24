@@ -34,8 +34,7 @@ class GameEyesApp:
         # 加载配置
         self.config: dict = self.load_config()
         
-        # 创建controller实例
-        self.controller = None
+        
         
         # translator的初始化参数，除外字符串集
         self.exclude_set: set = self.config['exclude_set']
@@ -79,6 +78,10 @@ class GameEyesApp:
 
         # 创建界面
         self.create_widgets()
+
+        # 创建controller实例（程序启动时等待界面初始化完成后立即初始化）
+        self.controller = None
+        self._initialize_controller()  # 初始化controller
 
     def create_widgets(self):
     # 主框架
@@ -274,73 +277,52 @@ class GameEyesApp:
         
         self.update_status("实时翻译开始...")
         
-        # 获取语言设置
-        selected_lang = self.source_lang_var.get()
-        ocr_languages = self.languages_mapping.get(selected_lang, ["en"])
-        
-        # 创建并启动controller
-        try:
-            # 如果已有controller在运行，先停止
-            if self.controller is not None:
-                self.controller.stop()
-                self.controller = None
-            
-            # 创建新的controller
-            self.controller = GameTranslationController(
-                ocr_languages=ocr_languages,
-                ocr_use_gpu=self.use_gpu_ocr.get(),
-                ocr_exclude_set=self.exclude_set,
-                capture_interval=self.interval,
-                max_text_length=200
-            )
-            
-            # 在单独的线程中启动controller，避免阻塞GUI
-            def run_controller():
-                try:
-                    if self.controller is None:
-                        self.update_status("错误: controller未初始化")
-                        self.root.after(0, self._reset_buttons)
-                        return
-                    region = (self.start_x, self.start_y, self.end_x, self.end_y)
-                    self.controller.start(region)
-                except Exception as e:
-                    self.update_status(f"启动翻译失败: {e}")
-                    # 恢复按钮状态
-                    self.root.after(0, self._reset_buttons)
-            
-            # 启动controller线程
-            controller_thread = threading.Thread(target=run_controller, daemon=True)
-            controller_thread.start()
-            
-            self.update_status(f"翻译已启动，区域: ({self.start_x}, {self.start_y}) - ({self.end_x}, {self.end_y})")
-            self.update_status(f"OCR语言: {selected_lang}, GPU加速: {'启用' if self.use_gpu_ocr.get() else '禁用'}")
-            
-        except Exception as e:
-            self.update_status(f"启动翻译时发生错误: {e}")
+        # 检查controller是否已初始化
+        if self.controller is None:
+            self.update_status("错误: controller未初始化")
             self._reset_buttons()
+            return
+        
+        # 在单独的线程中启动controller主循环
+        def run_controller():
+            try:
+                if self.controller is None:
+                    raise RuntimeError("controller未初始化")
+                region = (self.start_x, self.start_y, self.end_x, self.end_y)
+                self.controller.start(region)
+            except Exception as e:
+                self.update_status(f"启动翻译失败: {e}")
+                # 恢复按钮状态
+                self.root.after(0, self._reset_buttons)
+        
+        # 启动controller线程
+        controller_thread = threading.Thread(target=run_controller, daemon=True)
+        controller_thread.start()
+        
+        self.update_status(f"翻译已启动，区域: ({self.start_x}, {self.start_y}) - ({self.end_x}, {self.end_y})")
+        self.update_status(f"OCR语言: {self.source_lang_var.get()}, GPU加速: {'启用' if self.use_gpu_ocr.get() else '禁用'}")
     
     def stop_capture(self):
-        """停止翻译流程"""
+        """停止翻译流程，但保持音频进程运行"""
         self.is_capturing = False
 
         # 显示设置区域
         self.show_settings()
         
-        # 停止controller
+        # 停止controller主循环（但不停止音频进程）
         if self.controller is not None:
             try:
                 self.controller.stop()
                 self.update_status("正在停止翻译...")
             except Exception as e:
                 self.update_status(f"停止翻译时发生错误: {e}")
-            finally:
-                self.controller = None
+            # 注意：这里不将controller设为None，因为音频进程还在运行
         
         # 更新按钮状态
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         
-        self.update_status("翻译已停止")
+        self.update_status("翻译已停止（TTS模型保持加载状态）")
         
         # 保存OCR排除集
         if self.controller is not None:
@@ -404,15 +386,39 @@ class GameEyesApp:
         """窗口关闭时的处理"""
         self.is_capturing = False
         
-        # 停止controller
+        # 完全关闭controller（包括音频进程）
         if self.controller is not None:
-            self.controller.stop()
+            try:
+                self.controller.shutdown()
+            except Exception as e:
+                self.update_status(f"关闭控制器时发生错误: {e}")
         
         # 保存配置
         self.save_config()
         
         self.root.destroy()
 
+    def _initialize_controller(self):
+        """初始化controller（程序启动时调用）"""
+        try:
+            # 获取语言设置
+            selected_lang = self.config.get('source_lang_var', '英语')
+            ocr_languages = self.languages_mapping.get(selected_lang, ["en"])
+            
+            # 创建controller（会自动启动音频进程）
+            self.controller = GameTranslationController(
+                ocr_languages=ocr_languages,
+                ocr_use_gpu=self.config.get('use_gpu_ocr', True),
+                ocr_exclude_set=self.exclude_set,
+                capture_interval=self.interval,
+                max_text_length=200
+            )
+            
+            self.update_status("控制器已初始化（TTS模型预加载中...）")
+            
+        except Exception as e:
+            self.update_status(f"初始化控制器失败: {e}")
+            self.controller = None
 
 if __name__ == "__main__":
     root = tk.Tk()
