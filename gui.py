@@ -56,7 +56,7 @@ class GameEyesApp:
         # 截图控制变量
         self.is_selecting: bool = False
         self.is_capturing: bool = False
-        self.interval: float = 0.4  # 截图时间间隔
+        self.interval: float = 0.7  # 截图时间间隔
         
         # 初始化界面变量
         # 定义支持的语言列表
