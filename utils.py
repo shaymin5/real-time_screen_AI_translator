@@ -1,16 +1,19 @@
 import Levenshtein
 from collections import deque
+import threading
 
 
 class Checker:
     """
-        检查OCR传过来的文本是否需要翻译和体现。
-        目前方案：1、过长文本不通过检查；2、当前文本与上上次不相似，与上次相似，则通过检查。无论结果如何都存储新文本（不存储空文本）作为下一次判断的依据。
+    线程安全
+    检查OCR传过来的文本是否需要翻译和体现。
+    目前方案：1、过长文本不通过检查；2、当前文本与上上次不相似，与上次相似，则通过检查。无论结果如何都存储新文本（不存储空文本）作为下一次判断的依据。
     """
     def __init__(self, queue_size: int = 3, similarity: float = 0.95) -> None:
         # 关键：用空文本填充整个队列
         self.queue = deque([''] * queue_size, maxlen=queue_size)
         self.similarity = similarity
+        self.lock = threading.Lock()
 
     def check(self, new_text: str, maxlen: int = 200) -> bool:
         """
@@ -19,26 +22,27 @@ class Checker:
         1. 当前文本和上次文本高度相似（稳定）
         2. 当前文本和上上次文本高度不相似（确实变化了）
         """
-        if len(new_text) > maxlen or new_text == '':
-            return False
-        
-        # 存储新文本
-        self.queue.append(new_text)
-        
-        # 获取最近三次的文本
-        current = self.queue[-1]  # 当前文本
-        last = self.queue[-2]     # 上一次文本
-        last_last = self.queue[-3] # 上上次文本
-        
-        # 条件1：当前和上次高度相似（文本稳定）
-        similarity_current_last = Levenshtein.ratio(current, last)
-        is_stable = similarity_current_last >= self.similarity
-        
-        # 条件2：当前和上上次高度不相似（确实发生了变化）
-        similarity_current_last_last = Levenshtein.ratio(current, last_last)
-        has_changed = similarity_current_last_last < self.similarity
-        # 同时满足两个条件才通过检查
-        return is_stable and has_changed
+        with self.lock:
+            if len(new_text) > maxlen or new_text == '':
+                return False
+            
+            # 存储新文本
+            self.queue.append(new_text)
+            
+            # 获取最近三次的文本
+            current = self.queue[-1]  # 当前文本
+            last = self.queue[-2]     # 上一次文本
+            last_last = self.queue[-3] # 上上次文本
+            
+            # 条件1：当前和上次高度相似（文本稳定）
+            similarity_current_last = Levenshtein.ratio(current, last)
+            is_stable = similarity_current_last >= self.similarity
+            
+            # 条件2：当前和上上次高度不相似（确实发生了变化）
+            similarity_current_last_last = Levenshtein.ratio(current, last_last)
+            has_changed = similarity_current_last_last < self.similarity
+            # 同时满足两个条件才通过检查
+            return is_stable and has_changed
 
 if __name__ == "__main__":
     c = Checker(queue_size=3, similarity=0.8)
