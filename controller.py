@@ -234,8 +234,6 @@ class GameTranslationController:
             text = self.ocr.img_to_text(image)
             if text:
                 logger.debug(f"OCR识别结果: {text[:50]}...")  # 只显示前50个字符
-                # 添加控制台输出
-                print(f"[OCR原始文本] {text}")
             return text
         except Exception as e:
             logger.error(f"OCR识别失败: {e}")
