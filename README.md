@@ -1,59 +1,123 @@
-
 <div align="center">
 
 # 实时屏幕AI翻译工具 | Real-time Screen AI Translator Tool
-中文 | [English](README_EN.md)
 
 </div>
 
+<div align="center">
+
+![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white) · ![uv](https://img.shields.io/badge/uv-1.x-orange) · ![TTS](https://img.shields.io/badge/TTS-VoxCpm-green) · ![AI](https://img.shields.io/badge/AI-DeepSeek-6c47ff)
+
+</div>
+
+## 目录
+- [简介](#简介)
+- [功能特点](#功能特点)
+- [系统要求](#系统要求)
+- [快速开始](#快速开始)
+- [使用指南](#使用指南)
+- [性能说明](#性能说明)
+- [常见问题](#常见问题)
+- [开发计划](#开发计划)
+
 ## 简介
-这是一个用于将屏幕内容实时翻译成其他语言的Python应用程序。它使用本地OCR（光学字符识别）从选定的屏幕区域提取文本，然后使用在线AI翻译成中文。
+这是一个用于将屏幕内容实时翻译成其他语言的Python应用程序。它使用本地OCR（光学字符识别）从选定的屏幕区域提取文本，然后使用在线AI翻译成中文，并支持TTS语音播报和智能游戏UI屏蔽。
+
 ## 功能特点
 - **实时截图**：捕获屏幕并生成截图。
 - **OCR识别**：从截图中提取文字。
-- **在线翻译**：用deepseek的api进行翻译。
-- **自动屏蔽游戏UI**：自动识别并屏蔽游戏界面元素。
+- **在线翻译**：使用Deepseek API进行高质量翻译。
+- **自动屏蔽游戏UI**：自动识别并屏蔽游戏界面元素，v2.0优化后识别更精准、提取更流畅。
+- **TTS语音播报**：基于VoxCpm的语音合成，实时朗读翻译结果，解放双眼。
+
+## 系统要求
+- **Python**: 3.11
+- **操作系统**: Windows 10/11
+- **存储空间**: 至少5GB可用空间（用于模型文件）
+- **内存**: 建议8GB以上
+- **显存**: 6GB以上
+- **网络连接**: 需要访问Deepseek API
+
 ## 快速开始
-1. 安装uv来管理Python虚拟环境。[下载uv](https://github.com/astral-sh/uv)。
-2. 克隆此仓库到本地并进入项目目录，或直接下载仓库
+
+### 1. 安装前置工具
+安装uv来管理Python虚拟环境：[下载uv](https://github.com/astral-sh/uv)
+
+### 2. 获取项目代码
 ```bash
 git clone https://github.com/shaymin5/real-time_screen_AI_translator.git
 cd real-time_screen_AI_translator
 ```
-3. 在目录下创建一个`.env`文件，在其中添加你的Deepseek API密钥
+
+### 3. 配置API密钥
+获取[DeepSeek API密钥](https://platform.deepseek.com/usage)
+在项目根目录创建`.env`文件，添加你的Deepseek API密钥：
 ```text
 DEEPSEEK_API_KEY=你的api密钥
 ```
-4. 用`uv`安装依赖
+
+### 4. 下载TTS模型（用于语音播报）
+在魔塔社区[下载TTS模型](https://modelscope.cn/models/Shaymin726/haibara_lora/summary)，解压后放在`voxcpm_tts/model/`目录下。
+
+目录结构应如下所示：
+```
+├── voxcpm_tts/                  # TTS语音合成模块
+│   ├── model/                   # TTS模型文件
+│   │   ├── lora/               # LoRA模型文件
+│   │   ├── prompt/             # 提示词文件
+│   │   └── voxcpm_pretrained/  # 预训练模型
+```
+
+### 5. 安装依赖
 ```bash
+uv init
 uv sync
 ```
-安装torch时因为在国外服务器下载，速度慢正常，使用代理可以提速。目前该操作默认下载torch的cu128即gpu版本，没有Nvida显卡请下载cpu版本。下载cpu版本请把`pyproject.toml`中的
-`https://download.pytorch.org/whl/cu128`替换为`https://download.pytorch.org/whl/cpu`或`https://pypi.tuna.tsinghua.edu.cn/simple`，后者在中国大陆下载速度较快。
-如果你的设备对torch版本有要求，请自行修改`https://download.pytorch.org/whl/cu128`为相应地址。
 
-5. 开始运行
+### 6. 运行程序
 ```bash
 uv run main.py
 ```
-## 提示
-- 第一次选择某种源语言时需要等待下载OCR模型。后续无需下载，速度会快很多。
-- 暂只支持Deepseek API，性价比之选。后续考虑接入翻译速度更快的AI。
-- 目前仅支持英文翻译中文，后续考虑增加语言可选项。
-- OCR识别速度性能差异：RTX5060 8G 在0.1秒左右，造成延迟0.2秒；锐龙9500f在0.3秒左右，造成延迟0.6秒。
-## 注意
-本项目使用到`pickle`模块加载`.pk`文件，项目本身不携带该文件，该文件在运行过程中产生，仅用于保存设置和屏蔽词库。请勿信任来源不明的`.pk`文件，恶意的`.pk`文件可能会使你的电脑遭受安全威胁。
 
-## 下一步计划
-- [ ] 异步翻译，提升体验
-- [x] 增加新语言支持
-- [ ]  开放API接口提示词修改功能，允许玩家自定义翻译服务
-- [ ]  增加ttf功能自动朗读（挑战）
-   - [ ]  发掘或制作简单易用的ttf音色训练方案
-   - [ ]  用户自练音色实装
-- [x]  优化OCR可使用cpu模式，让硬件条件不好的玩家也可以露出笑容
-- [ ]  新增其他厂商的API接口
-- [ ]  对网络错误、API配额耗尽等异常情况做容错处理
-- [ ]  尝试实现常驻系统托盘，按快捷键唤起（可以先实现鼠标操作的快捷启动）
-- [ ]  尝试双屏方案
-- [ ]  优化运行环境自定义选项，玩家可以更方便选择torch版本
+## 使用指南
+1. 启动程序后会出现GUI界面
+2. 选择要翻译的屏幕区域
+3. 配置翻译选项
+4. 点击"开始"按钮开始实时翻译
+5. 翻译结果会以语音形式播报
+
+## 性能说明
+- **首次使用**：需要下载OCR模型，请保持网络连接
+- **翻译服务**：依赖Deepseek API，需要稳定的网络连接
+
+## 常见问题
+
+### Q: 安装torch时速度很慢怎么办？
+A: 可以尝试以下方法：
+1. 使用代理加速下载
+2. 修改`pyproject.toml`中的PyTorch源地址：
+   - CPU版本：替换为`https://download.pytorch.org/whl/cpu`
+   - 中国大陆用户：替换为`https://pypi.tuna.tsinghua.edu.cn/simple`
+   - 有NVIDIA显卡：保持默认的`https://download.pytorch.org/whl/cu128`
+
+### Q: 支持哪些语言？
+A: 目前主要支持英文翻译中文，后续会支持更多语言。
+
+### Q: 可以离线使用吗？
+A: OCR和TTS可以本地运行，但翻译需要网络连接访问Deepseek API。
+
+### Q: 第一次使用为什么很慢？
+A: 首次使用需要下载OCR模型和TTS模型，后续使用会快很多。
+
+## 开发计划
+- [ ] 支持更多翻译API
+- [ ] 增加更多语言选项
+- [ ] 优化OCR性能
+- [ ] 添加更多TTS语音选项
+
+---
+
+**提示**：
+- 本工具主要支持英文翻译中文，适用窗口游戏场景
+- Deepseek API是目前性价比较高的选择，后续会考虑接入更多翻译服务
+- 项目以实用性为主，兼顾学习用途，欢迎提出改进建议

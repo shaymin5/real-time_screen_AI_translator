@@ -7,3 +7,4 @@ temp*
 test*
 *.pk
 */model/*
+exclude_set.json
